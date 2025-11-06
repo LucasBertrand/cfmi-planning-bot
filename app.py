@@ -240,7 +240,6 @@ def get_birthdays(date: date) -> list[tuple[int, date]]:
 async def get_annonce_birthday_field(uid: int, birthday: date) -> Dict[str, Any]:
   """Create and return an embed field for a birthday."""
   user = await bot.fetch_user(uid)
-  age = date.today().year - birthday.year - ((date.today().month, date. oday().day) < (birthday.month, birthday.day))
   return {"name": f"🎂  Anniversaire de {user.display_name} !", "value": "", "inline": False}
 
 async def get_list_birthday_field(uid: int, birthday: date) -> Dict[str, Any]:
