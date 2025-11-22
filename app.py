@@ -2,7 +2,7 @@ import os
 import discord
 import aiohttp
 from discord.ext import commands, tasks
-from discord import app_commands
+from discord import app_commands, File
 from datetime import date, time, datetime, timedelta
 from typing import Optional, Dict, Any, Union
 from collections import defaultdict
@@ -13,6 +13,8 @@ from dataclasses import dataclass
 import uuid
 from dotenv import load_dotenv
 import unicodedata
+import csv
+from io import StringIO
 
 load_dotenv()
 
@@ -93,6 +95,12 @@ SEARCH_NO_RESULTS = "Aucun événement n'a été trouvé."
 SEARCH_RESULTS_TITLE = "🔎  Résultats de recherche"
 SEARCH_RESULTS_LIMIT = "⚠️  Résultats limités à 15. Affine peut-être ta recherche."
 
+# --- EXPORT CSV CONSTANTS ---
+
+CSV_EXPORT_DESCRIPTION = "Exporte le planning dans un fichier .csv."
+CSV_PROMO_DESCRIPTION = "Choisis la promotion"
+CSV_NO_EVENTS = "Aucun événement trouvé."
+
 # --- PARAMETER DESCRIPTIONS ---
 
 DATE_DESCRIPTION = "La date de l’événement (formats : JJ, JJ/MM, JJ/MM/AA ou JJ/MM/AAAA)"
@@ -101,6 +109,7 @@ JOUR_DESCRIPTION = "Choisis le jour de la semaine pour lequel afficher le planni
 REQUETE_DESCRIPTION = "Liste de mots clés (au moins 3 caractères, ignore les accents)"
 DEBUT_DESCRIPTION = "Date de début de la recherche (optionnelle, par défaut aujourd’hui)"
 FIN_DESCRIPTION = "Date de fin de la recherche (optionnelle, par défaut dernière date du planning)"
+
 
 # --- DATA CLASSES ---
 
@@ -263,7 +272,7 @@ async def download_excel(url: str) -> str:
 def extract_date_from_row(row) -> Optional[date]:
   """Extract a date object from a row if valid, else return None."""
   day, month_name, year = row[0], row[2], row[3]
-  month = FRENCH_MONTHS.get(month_name.upper())
+  month = FRENCH_MONTHS.get(month_name)
   if all(isinstance(x, int) for x in [day, month, year]):
     return date(year, month, day)
   return None
@@ -542,6 +551,62 @@ async def search_planning_cmd(
   for ev in limited: embed.add_field(**get_planning_event_field(ev, with_date=True))
   if len(results) > limit: embed.set_footer(text=SEARCH_RESULTS_LIMIT)
   await interaction.response.send_message(embed=embed, ephemeral=True)
+
+@bot.tree.command(name="get_file", description=CSV_EXPORT_DESCRIPTION)
+@app_commands.describe(promotion=CSV_PROMO_DESCRIPTION)
+@app_commands.choices(promotion=[
+  app_commands.Choice(name="1A", value="1A"),
+  app_commands.Choice(name="2A", value="2A")
+])
+async def get_file_cmd(interaction: discord.Interaction, promotion: str = ""):
+  """Export the planning as a CSV file."""
+  await interaction.response.defer(ephemeral=True)
+
+  events = []
+  for d, ev_list in sorted(planning_cache.items()):
+    for ev in ev_list:
+      if not promotion or is_in_promo(ev, promotion):
+        events.append(ev)
+
+  if not events:
+    return await interaction.followup.send(CSV_NO_EVENTS, ephemeral=True)
+
+  buffer = StringIO()
+  writer = csv.writer(buffer)
+  writer.writerow([
+    "Subject", "Start Date", "Start Time", "End Date", "End Time",
+    "All Day Event", "Description", "Location", "Private"
+  ])
+
+  for ev in events:
+    prefix = f"[{ev.promo}] " if not promotion and ev.promo else ""
+    subject = f"{prefix}{ev.title}"
+    start_date = ev.event_date.strftime("%m/%d/%Y")
+    end_date = ev.event_date.strftime("%m/%d/%Y")
+    start_time = ev.start_time.strftime("%I:%M %p") if ev.start_time else ""
+    end_time = ev.end_time.strftime("%I:%M %p") if ev.end_time else ""
+
+    description_parts = []
+    if ev.organizer: description_parts.append(f"Professeur : {ev.organizer}")
+    if ev.note: description_parts.append(f"Note : {ev.note}")
+    description = "\n".join(description_parts)
+
+    writer.writerow([
+      subject,
+      start_date,
+      start_time,
+      end_date,
+      end_time,
+      "False",
+      description,
+      ev.location or "",
+      "False"
+    ])
+
+  buffer.seek(0)
+  filename = f"planning_{promotion if promotion else 'all'}.csv"
+  file = File(fp=StringIO(buffer.getvalue()), filename=filename)
+  await interaction.followup.send(file=file, ephemeral=True)
 
 # --- RUN BOT ---
 
