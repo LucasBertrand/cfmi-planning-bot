@@ -6,7 +6,6 @@ from discord import app_commands
 from datetime import date, time, datetime, timedelta
 from typing import Optional, Dict, Any, Union
 from collections import defaultdict
-import requests
 import openpyxl
 import tempfile
 import json
@@ -138,7 +137,6 @@ class PlanningEvent:
     et = data.get("end_time")
     if isinstance(et, str): et = time.fromisoformat(et)
     return cls(
-      type = data.get("type"),
       event_date = ed,
       organizer = data.get("organizer"),
       title = data.get("title"),
@@ -184,7 +182,7 @@ def parse_time(value: str) -> Optional[time]:
 
 def toStrTime(t: time) -> str:
   """Convert a time object to a string"""
-  return t.strftime("%H:%M").lstrip("0")
+  return f"{t.hour}:{t.minute:02d}"
 
 def parse_date(value: str) -> Optional[date]:
   """Parse a date string in various formats and return a date object."""
@@ -231,7 +229,7 @@ async def remove_birthday(uid: int):
   """Remove a user's birthday from JSON file and cache."""
   if uid in birthdays_cache:
     del birthdays_cache[uid]
-    await save_json_file(BIRTHDAY_URL, {k: v for k,v in birthdays_cache.items()})
+    await save_json_file(BIRTHDAY_URL, {k: v.isoformat() for k,v in birthdays_cache.items()})
 
 def get_birthdays(date: date) -> list[tuple[int, date]]:
   """Return a list of (user_id, birthday) tuples for users whose birthday is on the given date."""
@@ -265,7 +263,7 @@ async def download_excel(url: str) -> str:
 def extract_date_from_row(row) -> Optional[date]:
   """Extract a date object from a row if valid, else return None."""
   day, month_name, year = row[0], row[2], row[3]
-  month = FRENCH_MONTHS.get(month_name)
+  month = FRENCH_MONTHS.get(month_name.upper())
   if all(isinstance(x, int) for x in [day, month, year]):
     return date(year, month, day)
   return None
