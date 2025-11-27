@@ -24,7 +24,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 
 BIRTHDAY_URL = "birthdays.json"
-PLANNING_URL = "https://sha.univ-poitiers.fr/cfmi/wp-content/uploads/sites/276/2025/10/Planning-general-CFMI-25-26.xlsx"
+PLANNING_URL = "https://sha.univ-poitiers.fr/cfmi/wp-content/uploads/sites/276/2025/11/Planning-general-CFMI-25-26.xlsx"
 DEFAULT_PROMO = "2A"
 EXCLUDED_MODULES = ["CONGES UNIVERSITAIRES", "FERIE"]
 
