@@ -1,6 +1,6 @@
 import os
 import discord
-import aiohttp
+import requests
 from discord.ext import commands, tasks
 from discord import app_commands, File
 from datetime import date, time, datetime, timedelta
@@ -256,16 +256,14 @@ async def get_list_birthday_field(uid: int, birthday: date) -> Dict[str, Any]:
 
 # --- PLANNING EVENTS ---
 
-async def download_excel(url: str) -> str:
-  """Download an Excel file asynchronously from a URL and return the local file path."""
+def download_excel(url: str) -> str:
+  """Download an Excel file synchronously using requests and return the local path."""
   tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
-  async with aiohttp.ClientSession() as session:
-    async with session.get(url) as response:
-      response.raise_for_status()
-      while True:
-        chunk = await response.content.read(8192)
-        if not chunk: break
-        tmp_file.write(chunk)
+  response = requests.get(url, stream=True)
+  response.raise_for_status()
+  for chunk in response.iter_content(chunk_size=8192):
+    if chunk:
+      tmp_file.write(chunk)
   tmp_file.close()
   return tmp_file.name
 
@@ -302,7 +300,7 @@ def cache_planning_event(row, event_date) -> None:
 @tasks.loop(time=time(2, 0, 0))
 async def load_planning_events() -> None:
   """Load planning events from the Excel file into the planning cache."""  
-  local_file = await download_excel(PLANNING_URL)
+  local_file = download_excel(PLANNING_URL)
   workbook = openpyxl.load_workbook(local_file, data_only=True, read_only=True)  
   planning_cache.clear()
   for row in workbook.active.iter_rows(min_row=2, values_only=True):
