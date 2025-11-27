@@ -379,6 +379,9 @@ async def on_ready():
   daily_tomorrow_planning.start()
   await load_birthdays()  
   await load_planning_events()
+  # 👉 ANNONCE DU RETOUR EN LIGNE
+  channel = bot.get_channel(CHANNEL_ID)
+  if channel: await channel.send("Je suis de retour !!! ❤️ (bon je crois que j'ai oublié quelques dates d'anniversaire...oups !)")
   await bot.tree.sync()
 
 # --- BIRTHDAY COMMANDS ---
